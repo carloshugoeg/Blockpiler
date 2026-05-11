@@ -1,0 +1,21 @@
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test:frontend": "vitest run tests/frontend"
+  },
+  "dependencies": {
+    "blockly": "latest",
+    "d3": "latest",
+    "marked": "^18.0.2",
+    "monaco-editor": "latest",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "latest",
+    "jsdom": "latest",
+    "vite": "latest",
+    "vitest": "latest"
+  }
+}

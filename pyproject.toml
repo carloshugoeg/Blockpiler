@@ -1,0 +1,14 @@
+[tool.mypy]
+strict = true
+
+[[tool.mypy.overrides]]
+module = "compiler.*"
+follow_imports = "silent"
+
+[[tool.mypy.overrides]]
+module = "flask_socketio.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "flask_cors.*"
+ignore_missing_imports = true
