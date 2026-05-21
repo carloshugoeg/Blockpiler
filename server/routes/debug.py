@@ -4,6 +4,7 @@ from flask import request
 from flask_socketio import SocketIO, emit
 from pydantic import ValidationError
 
+from compiler.ast_guard import validate_ast_limits
 from compiler.error_reporter import ErrorReporter
 from compiler.interpreter import DebugState, Interpreter
 from compiler.lexer import Lexer
@@ -44,6 +45,9 @@ def register_debug_events(socketio: SocketIO) -> None:
 
         program = Parser(tokens, reporter).parse()
         if reporter.has_errors:
+            emit('debug:error', reporter.to_response(ok=False))
+            return
+        if not validate_ast_limits(program, reporter):
             emit('debug:error', reporter.to_response(ok=False))
             return
 

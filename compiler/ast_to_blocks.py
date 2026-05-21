@@ -72,7 +72,6 @@ class ASTtoBlocks:
             'fields': {
                 'NAME': func.name,
                 'TYPE': func.return_type,
-                'RETURN_TYPE': func.return_type,
             },
             'inputs': {},
         }

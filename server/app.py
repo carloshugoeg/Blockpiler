@@ -16,6 +16,7 @@ def create_app() -> tuple[Flask, SocketIO]:
     from .routes.convert import convert_bp
     from .routes.files import files_bp
     from .routes.explain import explain_bp
+    from .routes.flowchart import flowchart_bp
     from .routes.run import run_bp
     from .routes.debug import register_debug_events
 
@@ -24,6 +25,7 @@ def create_app() -> tuple[Flask, SocketIO]:
     app.register_blueprint(convert_bp, url_prefix='/api')
     app.register_blueprint(files_bp, url_prefix='/api')
     app.register_blueprint(explain_bp, url_prefix='/api')
+    app.register_blueprint(flowchart_bp, url_prefix='/api')
     app.register_blueprint(run_bp, url_prefix='/api')
     register_debug_events(socketio)
 

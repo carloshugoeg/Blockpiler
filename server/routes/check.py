@@ -4,6 +4,7 @@ import flask.typing as ft
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
+from compiler.ast_guard import validate_ast_limits
 from compiler.error_reporter import ErrorReporter
 from compiler.lexer import Lexer
 from compiler.parser import Parser
@@ -29,6 +30,8 @@ def check_source() -> ft.ResponseReturnValue:
     program = Parser(tokens, reporter).parse()
     if reporter.has_errors:
         return jsonify(reporter.to_response()), 200
+    if not validate_ast_limits(program, reporter):
+        return jsonify(reporter.to_response(ok=False)), 200
 
     symbol_table = SemanticAnalyzer(reporter).analyze(program, mode='check')
 

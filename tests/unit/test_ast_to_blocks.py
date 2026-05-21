@@ -68,7 +68,7 @@ def test_function_decl_structure() -> None:
     assert len(top) == 1
     assert top[0]['type'] == 'c_func_decl'
     assert top[0]['fields']['NAME'] == 'main'
-    assert top[0]['fields']['RETURN_TYPE'] == 'int'
+    assert top[0]['fields']['TYPE'] == 'int'
 
 
 def test_srcline_injected() -> None:

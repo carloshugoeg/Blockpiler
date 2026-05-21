@@ -6,24 +6,23 @@ from pydantic import ValidationError
 
 from compiler.ast_guard import validate_ast_limits
 from compiler.error_reporter import ErrorReporter
-from compiler.explainer import Explainer
+from compiler.flowchart import FlowchartGenerator
 from compiler.lexer import Lexer
 from compiler.parser import Parser
 from compiler.semantic import SemanticAnalyzer
-from server.validators import ExplainRequest
+from server.validators import FlowchartRequest
 
-explain_bp = Blueprint('explain', __name__)
+flowchart_bp = Blueprint('flowchart', __name__)
 
 
-@explain_bp.post('/explain')
-def explain() -> ft.ResponseReturnValue:
+@flowchart_bp.post('/flowchart')
+def flowchart_source() -> ft.ResponseReturnValue:
     try:
-        req = ExplainRequest.model_validate(request.get_json(force=True))
+        req = FlowchartRequest.model_validate(request.get_json(force=True))
     except ValidationError as e:
         return jsonify({'ok': False, 'errors': e.errors()}), 422
 
     reporter = ErrorReporter()
-
     tokens = Lexer(req.source, reporter).tokenize()
     if reporter.has_errors:
         return jsonify(reporter.to_response(ok=False)), 200
@@ -38,5 +37,11 @@ def explain() -> ft.ResponseReturnValue:
     if reporter.has_errors:
         return jsonify(reporter.to_response(ok=False)), 200
 
-    explanation = Explainer().explain(program)
-    return jsonify({'ok': True, 'data': {'explanation': explanation}}), 200
+    mermaid = FlowchartGenerator().generate(program)
+    return jsonify({
+        'ok': True,
+        'data': {
+            'mermaid': mermaid,
+            'warnings': [w.to_dict() for w in reporter.warnings],
+        },
+    }), 200

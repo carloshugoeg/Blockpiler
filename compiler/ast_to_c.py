@@ -34,10 +34,10 @@ from compiler.ast_nodes import (
 
 _CTYPE_MAP = {
     'int': 'int',
-    'float': 'double',
+    'float': 'float',
     'char': 'char',
-    'bool': 'int',
-    'string': 'char*',
+    'bool': 'bool',
+    'string': 'string',
     'void': 'void',
     'unknown': 'void',
 }
@@ -111,7 +111,7 @@ class ASTtoC:
         return '    ' * level
 
     def _visit_program(self, node: Program) -> str:
-        parts = ['#include <stdio.h>', '#include <string.h>', '']
+        parts = []
         for decl in node.declarations:
             parts.append(self._visit(decl))
         return '\n'.join(parts)
@@ -202,10 +202,8 @@ class ASTtoC:
     def _visit_print_stmt(self, node: PrintStmt, indent: int = 0) -> str:
         pad = self._ind(indent)
         val = self._visit(node.expr)
-        newline = r'\n' if node.newline else ''
-        # Use %s for strings, %g for floats, %d for int/bool/char
-        fmt = '%s'  # default
-        return f'{pad}printf("{fmt}{newline}", {val});'
+        fn = 'println' if node.newline else 'print'
+        return f'{pad}{fn}({val});'
 
     def _visit_expr_stmt(self, node: ExprStmt, indent: int = 0) -> str:
         pad = self._ind(indent)
@@ -253,15 +251,14 @@ class ASTtoC:
         return f"'{escaped}'"
 
     def _visit_bool_literal(self, node: BoolLiteral) -> str:
-        return '1' if node.value else '0'
+        return 'true' if node.value else 'false'
 
     def _visit_input_expr(self, node: InputExpr) -> str:
-        # Return a scanf-like placeholder
         if node.variant == 'int':
-            return 'getchar_int()'
+            return 'input_int()'
         if node.variant == 'float':
-            return 'getchar_float()'
-        return 'getchar_str()'
+            return 'input_float()'
+        return 'input()'
 
     def _visit_cast_expr(self, node: CastExpr) -> str:
         ctype = _CTYPE_MAP.get(node.target_type, 'void')

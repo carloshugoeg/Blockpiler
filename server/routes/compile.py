@@ -8,7 +8,8 @@ import flask.typing as ft
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
-from compiler.codegen import CodeGenerator
+from compiler.ast_guard import validate_ast_limits
+from compiler.codegen import codegen
 from compiler.error_reporter import ErrorReporter
 from compiler.executor import Executor
 from compiler.explainer import Explainer
@@ -53,6 +54,8 @@ def compile_source() -> ft.ResponseReturnValue:
     program = Parser(tokens, reporter).parse()
     if reporter.has_errors:
         return jsonify(reporter.to_response(ok=False)), 200
+    if not validate_ast_limits(program, reporter):
+        return jsonify(reporter.to_response(ok=False)), 200
 
     SemanticAnalyzer(reporter).analyze(program, mode='compile')
     if reporter.has_errors:
@@ -61,22 +64,31 @@ def compile_source() -> ft.ResponseReturnValue:
     ast_data = _serialize_node(program)
 
     program = Optimizer(level=req.optimization_level).optimize(program)
-    assembly, line_map = CodeGenerator().generate(program)
+    assembly, line_map = codegen(program)
 
     result = Executor().assemble_and_run(assembly, str(uuid.uuid4()), req.stdin or '')
 
     explanation: str | None = Explainer().explain(program) if req.include_explanation else None
 
-    return jsonify({
-        'ok': True,
+    exec_ok = result.error is None and not result.timed_out and result.returncode != -1
+    response: dict[str, Any] = {
         'data': {
             'assembly': assembly,
             'ast': ast_data,
             'stdout': result.stdout,
             'stderr': result.stderr,
             'returncode': result.returncode,
+            'error': result.error,
+            'timed_out': result.timed_out,
             'line_map': {str(k): v for k, v in line_map.items()},
             'warnings': [w.to_dict() for w in reporter.warnings],
             'explanation': explanation,
         },
-    }), 200
+    }
+    if exec_ok:
+        response['ok'] = True
+    else:
+        msg = result.error or ('Tiempo de ejecución excedido' if result.timed_out else f'El proceso terminó con código {result.returncode}')
+        response['ok'] = False
+        response['errors'] = [{'code': 'RUN001', 'message': msg, 'line': 0, 'column': 0, 'length': 0, 'severity': 'error'}]
+    return jsonify(response), 200

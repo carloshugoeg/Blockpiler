@@ -519,9 +519,15 @@ class Interpreter:
             raise InterpreterError('input() requiere input_fn configurado')
         raw = self._input_fn()
         if expr.variant == 'int':
-            return int(raw.strip())
+            try:
+                return int(raw.strip())
+            except ValueError:
+                raise InterpreterError(f"input_int(): no se pudo convertir '{raw.strip()}' a entero")
         if expr.variant == 'float':
-            return float(raw.strip())
+            try:
+                return float(raw.strip())
+            except ValueError:
+                raise InterpreterError(f"input_float(): no se pudo convertir '{raw.strip()}' a decimal")
         return raw
 
 

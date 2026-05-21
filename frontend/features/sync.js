@@ -11,6 +11,16 @@ export class SyncManager {
     this._blocksListener = null;
   }
 
+  async flushIdeToBlocks() {
+    clearTimeout(this._debounceTimer);
+    this._debounceTimer = null;
+    return this._syncIdeToBlocks();
+  }
+
+  async flushBlocksToIde() {
+    return this._syncBlocksToIde();
+  }
+
   async _syncIdeToBlocks() {
     const source = this._editor.getValue();
     let json;
@@ -67,7 +77,10 @@ export class SyncManager {
     this._ideDisposable = this._editor.onDidChangeModelContent(() => {
       if (this._guard) return;
       clearTimeout(this._debounceTimer);
-      this._debounceTimer = setTimeout(() => this._syncIdeToBlocks(), 600);
+      this._debounceTimer = setTimeout(() => {
+        this._debounceTimer = null;
+        this._syncIdeToBlocks();
+      }, 600);
     });
 
     this._blocksListener = (event) => {

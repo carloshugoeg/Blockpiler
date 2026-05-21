@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal, Optional
 
+from compiler.ast_guard import validate_ast_limits
 from compiler.ast_nodes import (
     ArrayDecl,
     AssignOp,
@@ -54,7 +55,7 @@ LOSSY_NARROWING: set[tuple[CType, CType]] = {
 }
 
 _BUILTINS = {'print', 'println', 'input', 'input_int', 'input_float', 'true', 'false'}
-_LIBC_VARARG_BUILTINS = {'printf'}
+_LIBC_VARARG_BUILTINS: set[str] = set()
 
 
 def resolve_binary_type(left: CType, right: CType, op: str) -> tuple[CType, bool]:
@@ -254,6 +255,8 @@ class SemanticAnalyzer:
         self._all_locals: list[Symbol] = []  # all local symbols for unused checks
 
     def analyze(self, program: Program, mode: str = 'check') -> SymbolTable:
+        if not validate_ast_limits(program, self._reporter):
+            return self._table
         self._pass1_collect_functions(program)
         self._pass2_globals(program)
         self._pass3_function_bodies(program)

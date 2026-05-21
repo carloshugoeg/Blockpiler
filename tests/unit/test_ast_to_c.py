@@ -27,10 +27,10 @@ def test_binary_op_parenthesized() -> None:
     assert '*' in c_code
 
 
-def test_println_generates_printf() -> None:
+def test_println_generates_println() -> None:
     src = 'int main() { println(42); return 0; }'
     c_code = parse_and_convert(src)
-    assert 'printf' in c_code
+    assert 'println(' in c_code
 
 
 def test_indent_4_spaces() -> None:
@@ -85,13 +85,13 @@ def test_string_literal_escaped() -> None:
     src = r'int f() { return 0; }'
     c_code = parse_and_convert(src)
     # Just verify no crash and C output produced
-    assert '#include' in c_code
+    assert 'int f()' in c_code
 
 
 def test_bool_literal() -> None:
     src = 'int f() { bool x = true; return 0; }'
     c_code = parse_and_convert(src)
-    assert '1' in c_code
+    assert 'true' in c_code
 
 
 def test_function_with_params() -> None:
@@ -100,10 +100,10 @@ def test_function_with_params() -> None:
     assert 'int add(int a, int b)' in c_code
 
 
-def test_includes_present() -> None:
+def test_no_includes_emitted() -> None:
     src = 'int main() { return 0; }'
     c_code = parse_and_convert(src)
-    assert '#include <stdio.h>' in c_code
+    assert '#include' not in c_code
 
 
 def test_dowhile_generates_valid_c() -> None:

@@ -4,10 +4,12 @@ import flask.typing as ft
 from flask import Blueprint, jsonify, request
 from pydantic import ValidationError
 
+from compiler.ast_guard import validate_ast_limits
 from compiler.ast_to_blocks import ASTtoBlocks
 from compiler.ast_to_c import ASTtoC
 from compiler.blocks_to_ast import BlocksToAST
 from compiler.error_reporter import ErrorReporter
+from compiler.limits import MAX_NESTING_DEPTH
 from compiler.lexer import Lexer
 from compiler.parser import Parser
 from server.validators import ConvertRequest
@@ -32,6 +34,8 @@ def convert() -> ft.ResponseReturnValue:
         program = Parser(tokens, reporter).parse()
         if reporter.has_errors:
             return jsonify(reporter.to_response(ok=False)), 200
+        if not validate_ast_limits(program, reporter):
+            return jsonify(reporter.to_response(ok=False)), 200
 
         workspace = ASTtoBlocks().convert(program)
         return jsonify({'ok': True, 'data': {'workspace': workspace}}), 200
@@ -39,8 +43,19 @@ def convert() -> ft.ResponseReturnValue:
     else:  # blocks_to_c
         reporter = ErrorReporter()
 
-        program = BlocksToAST(reporter).convert(req.workspace)
+        try:
+            program = BlocksToAST(reporter).convert(req.workspace)
+        except RecursionError:
+            reporter.add(
+                'PAR009',
+                f'Profundidad de anidamiento excede el máximo ({MAX_NESTING_DEPTH})',
+                0,
+                0,
+            )
+            return jsonify(reporter.to_response(ok=False)), 200
         if reporter.has_errors:
+            return jsonify(reporter.to_response(ok=False)), 200
+        if not validate_ast_limits(program, reporter):
             return jsonify(reporter.to_response(ok=False)), 200
 
         source = ASTtoC().generate(program)

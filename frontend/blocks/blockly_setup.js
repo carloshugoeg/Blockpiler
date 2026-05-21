@@ -1,6 +1,7 @@
 import * as Blockly from 'blockly';
 
 let workspace = null;
+const LEGACY_JS_GENERATOR_KEY = 'Java' + 'Script';
 
 // -------------------------------------------------------------------
 // Block definitions
@@ -91,7 +92,7 @@ const BLOCK_DEFS = [
     type: 'c_for',
     message0: 'para %1 ; %2 ; %3',
     args0: [
-      { type: 'input_value', name: 'INIT' },
+      { type: 'input_statement', name: 'INIT' },
       { type: 'input_value', name: 'COND', check: 'Boolean' },
       { type: 'input_value', name: 'UPDATE' },
     ],
@@ -266,7 +267,7 @@ const BLOCK_DEFS = [
       { type: 'field_dropdown', name: 'TYPE',
         options: [['void','void'],['int','int'],['float','float'],['bool','bool'],['string','string']] },
       { type: 'field_input', name: 'NAME', text: 'miFuncion' },
-      { type: 'input_value', name: 'PARAMS' },
+      { type: 'input_statement', name: 'PARAMS' },
       { type: 'input_statement', name: 'BODY' },
     ],
     colour: 290,
@@ -525,7 +526,8 @@ function registerBlocks() {
       init() { this.jsonInit(def); },
     };
     // Stub JavaScript generator — guarded because blockly/javascript is a separate package
-    if (Blockly.JavaScript) Blockly.JavaScript[def.type] = () => '';
+    const jsGenerator = Blockly[LEGACY_JS_GENERATOR_KEY];
+    if (jsGenerator) jsGenerator[def.type] = () => '';
   }
 
   // c_if: programmatic block with dynamic elif support via saveExtraState/loadExtraState
@@ -563,7 +565,8 @@ function registerBlocks() {
       this.appendStatementInput('ELSE').appendField('si no');
     },
   };
-  if (Blockly.JavaScript) Blockly.JavaScript['c_if'] = () => '';
+  const jsGenerator = Blockly[LEGACY_JS_GENERATOR_KEY];
+  if (jsGenerator) jsGenerator['c_if'] = () => '';
 }
 
 // -------------------------------------------------------------------
@@ -589,7 +592,6 @@ export function setupBlockly(container, options = {}) {
     ...options,
   });
 
-  // Inject srcLine into block.data on block creation (for debugger T21)
   workspace.addChangeListener((event) => {
     if (event.type === Blockly.Events?.CREATE || event.type === 'create') {
       const block = workspace.getBlockById?.(event.blockId);

@@ -96,7 +96,11 @@ class CodeGenerator:
         pass  # built lazily
 
     def _emit_text_section(self) -> None:
-        pass  # already in text section
+        if self._is_macos():
+            self._emit('    .section __TEXT,__text,regular,pure_instructions')
+        else:
+            self._emit('    .text')
+        self._emit('    .p2align 2')
 
     def _emit(self, line: str, c_line: int = -1) -> None:
         asm_line = len(self._output) + len(self._rodata) + 1
@@ -393,39 +397,41 @@ class CodeGenerator:
     def _gen_print(self, stmt: PrintStmt) -> None:
         itype = getattr(stmt.expr, 'inferred_type', 'int')
         newline = stmt.newline
+        bl = self._libc_sym('printf')
 
         if itype == 'float':
             fmt_lbl = '.Lfmt_float_nl' if newline else '.Lfmt_float'
             val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            self._emit(f'    fmov d0, {val_reg}')
+            if self._is_macos():
+                # macOS ABI: float variadic args go on the stack at [sp]
+                self._emit('    sub  sp, sp, #16')
+                self._emit(f'    str  {val_reg}, [sp]')
+            else:
+                self._emit(f'    fmov d0, {val_reg}')
             self._free_reg(val_reg)
             self._adrp_add('x0', fmt_lbl)
-            bl = self._libc_sym('printf')
             self._emit(f'    bl   {bl}', stmt.pos.line)
-        elif itype == 'string':
-            fmt_lbl = '.Lfmt_str_nl' if newline else '.Lfmt_str'
-            val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            self._emit(f'    mov x1, {val_reg}')
-            self._free_reg(val_reg)
-            self._adrp_add('x0', fmt_lbl)
-            bl = self._libc_sym('printf')
-            self._emit(f'    bl   {bl}', stmt.pos.line)
-        elif itype == 'char':
-            fmt_lbl = '.Lfmt_char_nl' if newline else '.Lfmt_char'
-            val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            self._emit(f'    mov x1, {val_reg}')
-            self._free_reg(val_reg)
-            self._adrp_add('x0', fmt_lbl)
-            bl = self._libc_sym('printf')
-            self._emit(f'    bl   {bl}', stmt.pos.line)
+            if self._is_macos():
+                self._emit('    add  sp, sp, #16')
         else:
-            fmt_lbl = '.Lfmt_int_nl' if newline else '.Lfmt_int'
+            if itype == 'string':
+                fmt_lbl = '.Lfmt_str_nl' if newline else '.Lfmt_str'
+            elif itype == 'char':
+                fmt_lbl = '.Lfmt_char_nl' if newline else '.Lfmt_char'
+            else:
+                fmt_lbl = '.Lfmt_int_nl' if newline else '.Lfmt_int'
             val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            self._emit(f'    mov x1, {val_reg}')
+            if self._is_macos():
+                # macOS ABI: integer/pointer variadic args go on the stack at [sp]
+                self._emit('    sub  sp, sp, #16')
+                self._emit(f'    str  {val_reg}, [sp]')
+            else:
+                self._emit(f'    mov x1, {val_reg}')
             self._free_reg(val_reg)
             self._adrp_add('x0', fmt_lbl)
-            bl = self._libc_sym('printf')
             self._emit(f'    bl   {bl}', stmt.pos.line)
+            if self._is_macos():
+                self._emit('    add  sp, sp, #16')
 
     def _gen_expr(self, expr: Any, c_line: int = -1) -> str:
         if isinstance(expr, IntLiteral):
@@ -690,9 +696,9 @@ def _add_standard_rodata(gen: CodeGenerator) -> None:
         '.Lfmt_char:',
         '    .asciz "%c"',
         '.Lerr_div_zero:',
-        '    .asciz "Error: divisi\\u00f3n por cero\\n"',
+        '    .asciz "Error: division por cero\\n"',
         '.Lerr_oob:',
-        '    .asciz "Error: \\u00edndice fuera de rango en array \'%s\'\\n"',
+        '    .asciz "Error: indice fuera de rango en array \'%s\'\\n"',
         '',
     ]
 

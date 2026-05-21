@@ -32,3 +32,7 @@ class ValidateFileRequest(BaseModel):
 
 class ExplainRequest(BaseModel):
     source: str = Field(..., max_length=524_288)
+
+
+class FlowchartRequest(BaseModel):
+    source: str = Field(..., max_length=524_288)

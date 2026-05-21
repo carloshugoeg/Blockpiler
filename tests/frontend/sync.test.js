@@ -170,4 +170,35 @@ describe('T19 · SyncManager', () => {
     workspace._triggerChange({ isUiEvent: false });
     expect(fetch).not.toHaveBeenCalled();
   });
+
+  it('flushIdeToBlocks syncs immediately without waiting for debounce', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ ok: true, data: { workspace: { blocks: [{ type: 'c_func_decl' }] } } }),
+    });
+    sync.enableSync();
+    editor._triggerChange();
+
+    await sync.flushIdeToBlocks();
+    await flush();
+
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ direction: 'c_to_blocks' });
+    expect(Blockly.serialization.workspaces.load).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(600);
+    await flush();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it('flushBlocksToIde syncs current workspace into editor immediately', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ ok: true, data: { source: 'int main() { return 1; }' } }),
+    });
+
+    await sync.flushBlocksToIde();
+    await flush();
+
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toMatchObject({ direction: 'blocks_to_c' });
+    expect(editor.setValue).toHaveBeenCalledWith('int main() { return 1; }');
+  });
 });

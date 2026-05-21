@@ -1,4 +1,5 @@
-﻿import * as Blockly from 'blockly';
+import './styles.css';
+import * as Blockly from 'blockly';
 import { setupMonaco, getEditorValue, setEditorValue, getEditor } from './ide/monaco_setup.js';
 import { setupBlockly, getWorkspace, getWorkspaceJSON, loadWorkspaceJSON } from './blocks/blockly_setup.js';
 import { AsmPanel } from './features/asm_panel.js';
@@ -7,6 +8,7 @@ import { Debugger } from './features/debugger.js';
 import { ExplainerPanel } from './features/explainer.js';
 import { Gallery } from './features/gallery.js';
 import { ShareManager } from './features/share.js';
+import { fetchJSON } from './features/api_client.js';
 import {
   saveAsC, saveAsAsm, saveAsCfproj,
   loadFile, autoSave, loadAutoSave,
@@ -42,6 +44,10 @@ document.getElementById('app').innerHTML = `
         <button id="btn-ast" class="btn active" data-panel-target="ast-container">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4h2v4h4v2h-4v4h4v2h-4v4h-2v-4H7v-2h4v-4H7V8h4V4Z"/></svg>
           <span>AST</span>
+        </button>
+        <button id="btn-flowchart" class="btn" data-panel-target="flowchart-container">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h6v6H5V3Zm8 0h6v6h-6V3ZM8 9h2v2h5V9h2v4h-4v2h6v6h-6v-6h-2v6H5v-6h6v-2H8V9Zm-1 8v2h2v-2H7Zm8 0v2h2v-2h-2Z"/></svg>
+          <span>Flowchart</span>
         </button>
         <button id="btn-asm" class="btn" data-panel-target="asm-container">
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v3H4V5Zm0 5h16v3H4v-3Zm0 5h10v3H4v-3Z"/></svg>
@@ -103,22 +109,9 @@ document.getElementById('app').innerHTML = `
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v6H4V5Zm9 0h7v6h-7V5ZM4 13h7v6H4v-6Zm9 0h7v6h-7v-6Z"/></svg>
             <span>Blockly</span>
           </button>
-          <button id="btn-toggle-palette" class="tab-action">Paleta</button>
           <button id="btn-clear-blocks" class="tab-action">Limpiar</button>
         </div>
         <div class="panel-body code-body">
-          <aside id="blocks-palette-panel" class="blocks-palette-panel">
-            <div class="palette-title">Paleta de bloques</div>
-            <div class="palette-chip-row">
-              <span class="palette-chip variables">Variables</span>
-              <span class="palette-chip control">Control</span>
-              <span class="palette-chip functions">Funciones</span>
-              <span class="palette-chip io">I/O</span>
-              <span class="palette-chip operators">Operadores</span>
-              <span class="palette-chip arrays">Arrays</span>
-              <span class="palette-chip types">Tipos</span>
-            </div>
-          </aside>
           <div id="editor-container" class="panel-content hidden"></div>
           <div id="blocks-container" class="panel-content"></div>
         </div>
@@ -129,6 +122,7 @@ document.getElementById('app').innerHTML = `
       <div id="right-panel" class="surface-panel info-panel">
         <div class="panel-body info-body">
           <div id="ast-container" class="panel-content"></div>
+          <div id="flowchart-container" class="panel-content hidden"></div>
           <div id="asm-container" class="panel-content hidden"></div>
           <div id="debug-container" class="panel-content hidden"></div>
           <div id="explain-container" class="panel-content hidden"></div>
@@ -161,7 +155,7 @@ const workspace = getWorkspace();
 // ── Create module instances ────────────────────────────────────────────────
 const asmPanel  = new AsmPanel(document.getElementById('asm-container'), editor);
 const astViewer = new ASTViewer(document.getElementById('ast-container'));
-const debugInst = new Debugger(editor, workspace, 'http://localhost:5000');
+const debugInst = new Debugger(editor, workspace, window.location.origin);
 const explainer = new ExplainerPanel(document.getElementById('explain-container'));
 const gallery   = new Gallery(editor);
 const shareMan  = new ShareManager();
@@ -170,7 +164,9 @@ const syncMan   = new SyncManager(editor, workspace);
 debugInst.mountUI(document.getElementById('debug-container'));
 
 let lastAssembly = '';
+let lastFlowchart = '';
 let autoSaveTimer = null;
+let mermaidApi = null;
 
 // ── Console helpers ────────────────────────────────────────────────────────
 function printConsole(text, isError = false) {
@@ -240,15 +236,88 @@ function cleanIdeAndBlocks() {
   clearBlocksWorkspace();
 }
 
+async function getMermaid() {
+  if (mermaidApi) return mermaidApi;
+  const mod = await import('mermaid');
+  mermaidApi = mod.default;
+  mermaidApi.initialize({
+    startOnLoad: false,
+    securityLevel: 'strict',
+    flowchart: {
+      htmlLabels: true,
+      curve: 'basis',
+      nodeSpacing: 42,
+      rankSpacing: 58,
+      useMaxWidth: false,
+    },
+    theme: 'base',
+    themeVariables: {
+      fontFamily: 'Inter, ui-sans-serif, system-ui',
+      primaryColor: '#eaf2ff',
+      primaryBorderColor: '#2563eb',
+      primaryTextColor: '#172033',
+      lineColor: '#617085',
+      tertiaryColor: '#ffffff',
+    },
+  });
+  return mermaidApi;
+}
+
+async function renderFlowchart(mermaidSource) {
+  const container = document.getElementById('flowchart-container');
+  const id = `flowchart-${Date.now()}`;
+  const mermaid = await getMermaid();
+  const { svg } = await mermaid.render(id, mermaidSource);
+  container.innerHTML = `
+    <div class="flowchart-toolbar">
+      <button id="btn-refresh-flowchart" class="tab-action">Actualizar</button>
+      <button id="btn-copy-flowchart" class="tab-action">Copiar Mermaid</button>
+    </div>
+    <div class="flowchart-canvas">${svg}</div>
+  `;
+  container.querySelector('#btn-refresh-flowchart').onclick = () => {
+    void loadFlowchart(getEditorValue(), true);
+  };
+  container.querySelector('#btn-copy-flowchart').onclick = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(mermaidSource);
+  };
+}
+
+async function loadFlowchart(source, activate = false) {
+  const container = document.getElementById('flowchart-container');
+  container.innerHTML = '<div class="flowchart-empty">Generando flowchart...</div>';
+  try {
+    const data = await fetchJSON('/api/flowchart', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ source }),
+    });
+
+    if (!data.ok) {
+      const errs = (data.errors ?? [])
+        .map(e => `[${e.severity}] linea ${e.line}: ${e.message}`)
+        .join('\n');
+      container.innerHTML = `<pre class="flowchart-error">${errs || 'No se pudo generar el flowchart.'}</pre>`;
+      return;
+    }
+
+    lastFlowchart = data.data.mermaid ?? '';
+    await renderFlowchart(lastFlowchart);
+    if (activate) activateRightPanel('flowchart-container');
+  } catch (err) {
+    container.innerHTML = `<pre class="flowchart-error">Error de red: ${err.message}</pre>`;
+  }
+}
+
 async function loadSourceAfterClean(source) {
   syncMan.disableSync();
   try {
     cleanIdeAndBlocks();
     setEditorValue(source ?? '');
+    await syncMan._syncIdeToBlocks();
   } finally {
     syncMan.enableSync();
   }
-  await syncMan._syncIdeToBlocks();
 }
 
 async function loadWorkspaceAfterClean(workspaceJson) {
@@ -256,10 +325,10 @@ async function loadWorkspaceAfterClean(workspaceJson) {
   try {
     cleanIdeAndBlocks();
     loadWorkspaceJSON(workspaceJson);
+    await syncMan._syncBlocksToIde();
   } finally {
     syncMan.enableSync();
   }
-  await syncMan._syncBlocksToIde();
 }
 
 async function loadProjectAfterClean(project) {
@@ -268,42 +337,43 @@ async function loadProjectAfterClean(project) {
     cleanIdeAndBlocks();
     if (project?.source) setEditorValue(project.source);
     if (project?.workspace) loadWorkspaceJSON(project.workspace);
+    if (project?.source && !project?.workspace) {
+      await syncMan._syncIdeToBlocks();
+    } else if (project?.workspace && !project?.source) {
+      await syncMan._syncBlocksToIde();
+    }
   } finally {
     syncMan.enableSync();
   }
-
-  if (project?.source && !project?.workspace) {
-    await syncMan._syncIdeToBlocks();
-  } else if (project?.workspace && !project?.source) {
-    await syncMan._syncBlocksToIde();
-  }
 }
 
-document.getElementById('left-tabs').addEventListener('click', e => {
+document.getElementById('left-tabs').addEventListener('click', async e => {
   const btn = e.target.closest('.tab-btn');
   if (!btn) return;
-  activateTab('left-tabs', btn.dataset.target);
+  const target = btn.dataset.target;
+  if (target === 'blocks-container') {
+    await syncMan.flushIdeToBlocks();
+  } else if (target === 'editor-container') {
+    await syncMan.flushBlocksToIde();
+  }
+  activateTab('left-tabs', target);
   const clearBtn = document.getElementById('btn-clear-blocks');
-  const paletteBtn = document.getElementById('btn-toggle-palette');
-  if (btn.dataset.target === 'editor-container') {
+  if (target === 'editor-container') {
     editor?.layout();
     clearBtn.classList.add('hidden');
-    paletteBtn.classList.add('hidden');
-  } else if (btn.dataset.target === 'blocks-container') {
+  } else if (target === 'blocks-container') {
     Blockly.svgResize(workspace);
     clearBtn.classList.remove('hidden');
-    paletteBtn.classList.remove('hidden');
   }
 });
 
-document.getElementById('btn-toggle-palette').onclick = () => {
-  document.getElementById('left-panel').classList.toggle('palette-collapsed');
-  Blockly.svgResize(workspace);
-};
+
 
 document.getElementById('btn-clear-blocks').onclick = () => {
   clearBlocksWorkspace();
 };
+
+
 
 // ── Compile — loads AST + assembly + explanation ───────────────────────────
 async function compile() {
@@ -311,12 +381,11 @@ async function compile() {
   clearConsole();
   printConsole('Compilando…');
   try {
-    const res  = await fetch('/api/compile', {
+    const data = await fetchJSON('/api/compile', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ source, optimization_level: 1, include_explanation: true }),
     });
-    const data = await res.json();
     clearConsole();
 
     if (data.ok) {
@@ -327,6 +396,9 @@ async function compile() {
 
       // AST
       astViewer.render(data.data.ast ?? null);
+
+      // Flowchart
+      await loadFlowchart(source);
 
       // Explanation
       if (data.data.explanation) {
@@ -357,12 +429,11 @@ async function run() {
   clearConsole();
   printConsole('Ejecutando…');
   try {
-    const res  = await fetch('/api/run', {
+    const data = await fetchJSON('/api/run', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ source }),
     });
-    const data = await res.json();
     clearConsole();
 
     if (data.ok) {
@@ -389,6 +460,12 @@ document.getElementById('btn-run').onclick     = run;
 
 document.getElementById('btn-ast').onclick = () => {
   activateRightPanel('ast-container');
+};
+
+document.getElementById('btn-flowchart').onclick = () => {
+  activateMainView();
+  activateRightPanel('flowchart-container');
+  void loadFlowchart(getEditorValue());
 };
 
 document.getElementById('btn-asm').onclick = () => {
@@ -496,5 +573,3 @@ if (sharedState?.source || sharedState?.workspace) {
   const saved = loadAutoSave();
   if (saved?.source || saved?.workspace) void loadProjectAfterClean(saved);
 }
-
-
