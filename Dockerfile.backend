@@ -1,8 +1,16 @@
-FROM python:3.11-slim
-
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+FROM --platform=linux/amd64 python:3.11-slim-bookworm
 
 WORKDIR /app
+
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' \
+        /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc \
+        gcc-aarch64-linux-gnu \
+        libc6-dev-arm64-cross \
+        qemu-user \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

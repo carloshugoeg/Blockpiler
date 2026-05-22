@@ -42,7 +42,7 @@ class Executor:
             as_proc = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=30
             )
-        except FileNotFoundError as exc:
+        except (FileNotFoundError, RuntimeError) as exc:
             return ExecutionResult(
                 stdout='', stderr=str(exc), returncode=-1,
                 timed_out=False, assembly_path=asm_path, binary_path=None,
@@ -90,9 +90,17 @@ class Executor:
     def _is_native_arm64(self) -> bool:
         return platform.machine().lower() in ('arm64', 'aarch64')
 
+    def _is_macos(self) -> bool:
+        return platform.system() == 'Darwin'
+
     def _gcc_cmd(self, asm: str, out: str) -> list[str]:
         if self._is_native_arm64():
             return ['gcc', '-o', out, asm]
+        if self._is_macos():
+            raise RuntimeError(
+                'La compilación AArch64 no está disponible en macOS Intel. '
+                'Usa Docker: docker compose up'
+            )
         return ['aarch64-linux-gnu-gcc', '-static', '-o', out, asm]
 
     def _run_cmd(self, bin_path: str) -> list[str]:

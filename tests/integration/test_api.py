@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from flask.testing import FlaskClient
@@ -59,7 +59,13 @@ def test_deep_expression_returns_par009_not_500(client: FlaskClient, endpoint: s
 
 # ── /api/compile ─────────────────────────────────────────────────────────────
 
-def test_compile_simple(client: FlaskClient) -> None:
+@patch('subprocess.run')
+def test_compile_simple(mock_run: MagicMock, client: FlaskClient) -> None:
+    # Mock successful compilation and run
+    mock_run.return_value.returncode = 0
+    mock_run.return_value.stdout = 'hello\n'
+    mock_run.return_value.stderr = ''
+
     resp = client.post('/api/compile', json={'source': SIMPLE_PROG})
     assert resp.status_code == 200
     data = resp.get_json()

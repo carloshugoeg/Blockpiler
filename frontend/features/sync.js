@@ -59,7 +59,9 @@ export class SyncManager {
     if (!json.ok) return;
     this._guard = true;
     try {
+      const viewState = this._editor.saveViewState();
       this._editor.setValue(json.data.source);
+      if (viewState) this._editor.restoreViewState(viewState);
     } finally {
       this._guard = false;
     }

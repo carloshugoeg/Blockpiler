@@ -221,7 +221,6 @@ class CodeGenerator:
         self._gen_block(func.body)
 
         # Epilogue (implicit return 0 for int functions)
-        self._emit('.Lepilogue:')
         self._emit('    mov w0, #0')
         self._emit(f'    ldp x29, x30, [sp], #{self._frame_size}')
         self._emit('    ret')
