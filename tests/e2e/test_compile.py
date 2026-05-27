@@ -68,9 +68,8 @@ def test_valid_program_shows_output(page) -> None:
     )
 
     output = editor_page.get_output(page)
-    assert "42" in output, (
-        f"Expected '42' in interpreter output, got: {output!r}"
-    )
+    assert output.strip() == "42" or output.strip().splitlines()[-1] == "42", \
+        f"Expected '42' as output, got: {output!r}"
 
 
 # ==============================================================================
@@ -93,10 +92,10 @@ def test_syntax_error_shows_error_panel(page) -> None:
 
     output = editor_page.get_output(page)
 
-    # Must mention an error
-    assert "error" in output.lower() or "línea" in output.lower(), (
-        f"Expected error text in output, got: {output!r}"
-    )
+    # Must mention an error with syntax-related context
+    assert ("error" in output.lower() or "línea" in output.lower()) and \
+           any(kw in output.lower() for kw in ("else", "par", "esperaba", "syntax")), \
+           f"Expected syntax error message, got: {output!r}"
 
     # Must contain some location hint — a digit (line or column number)
     has_location = any(ch.isdigit() for ch in output)
@@ -185,9 +184,8 @@ def test_multiple_errors_shown(page) -> None:
         1 for name in ("undeclaredA", "undeclaredB", "undeclaredC")
         if name in output
     )
-    assert mentioned >= 2, (
-        f"Expected multiple errors (>=2 variable names in output), got: {output!r}"
-    )
+    assert mentioned >= 2 and ("error" in output.lower() or "sem" in output.lower()), \
+        f"Expected at least 2 variable names in error output, got: {output!r}"
 
 
 # ==============================================================================

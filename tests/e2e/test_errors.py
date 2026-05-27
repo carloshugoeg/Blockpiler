@@ -59,15 +59,8 @@ def test_upload_unsupported_format_shows_error(page) -> None:
     # The UI must communicate that something happened — either an explicit error
     # message or a format-related notice.  Silent failure (empty console) is wrong.
     has_feedback = (
-        "pdf" in output.lower()
-        or "format" in output.lower()
-        or "formato" in output.lower()
-        or "error" in output.lower()
-        or "no soportado" in output.lower()
-        or "unsupported" in output.lower()
-        or "inválido" in output.lower()
-        or "invalid" in output.lower()
-        or "tipo" in output.lower()
+        ("error" in output.lower() or "unsupported" in output.lower() or "formato" in output.lower() or "no soportado" in output.lower())
+        and ("pdf" in output.lower() or "archivo" in output.lower() or output.strip() != "")
     )
     assert has_feedback, (
         f"Expected error/notice for unsupported .pdf upload, got blank/no output: {output!r}"
@@ -85,6 +78,9 @@ def test_save_c_and_reimport(page) -> None:
     _reload(page)
 
     editor_page.type_code(page, PRINTLN_42)
+
+    # Wait for save button to be ready before opening the dropdown
+    page.wait_for_selector("#btn-save", state="visible", timeout=5_000)
 
     # Open the save dropdown
     page.locator("#btn-save").click()
@@ -111,6 +107,9 @@ def test_save_project_roundtrip(page) -> None:
     _reload(page)
 
     editor_page.type_code(page, PRINTLN_42)
+
+    # Wait for save button to be ready before opening the dropdown
+    page.wait_for_selector("#btn-save", state="visible", timeout=5_000)
 
     # Open the save dropdown
     page.locator("#btn-save").click()
