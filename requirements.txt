@@ -5,3 +5,5 @@ pydantic==2.7.1
 pytest==8.2.0
 pytest-cov==5.0.0
 eventlet==0.36.1
+pytest-playwright
+playwright

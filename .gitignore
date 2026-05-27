@@ -26,3 +26,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+# E2E Tests
+tests/e2e/reports/
+tests/e2e/screenshots/
