@@ -87,17 +87,15 @@ def convert_to_code(page: Page) -> str:
     become visible before reading the value.
     """
     switch_to_code(page)
-    # Give the async sync a moment to complete — wait for the editor value
-    # to be non-empty or for the sync to settle (max 10 s).
+    # Give the async sync event a moment to fire and complete
+    page.wait_for_timeout(300)
+    # Now wait for Monaco editor to be available
     page.wait_for_function(
         """
         () => {
             if (window.monaco && window.monaco.editor) {
                 const editors = window.monaco.editor.getEditors();
-                if (editors && editors.length > 0) {
-                    // Accept either non-empty content or a settled empty editor
-                    return true;
-                }
+                return editors && editors.length > 0;
             }
             return false;
         }

@@ -36,8 +36,13 @@ def get_asm_lines(page: Page) -> list[str]:
 
     The AsmPanel renders assembly as text inside #asm-container.  We
     return each non-empty line as a string.
+
+    Raises RuntimeError if the ASM button is disabled (requires compilation first).
     """
-    page.locator('#btn-asm').click()
+    btn_asm = page.locator('#btn-asm')
+    if not btn_asm.is_enabled():
+        raise RuntimeError("ASM button is disabled; compile first")
+    btn_asm.click()
     # Wait for asm-container to become visible
     page.wait_for_selector('#asm-container:not(.hidden)', timeout=5_000)
 
