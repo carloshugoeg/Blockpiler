@@ -99,7 +99,10 @@ def test_gallery_hello_world(page) -> None:
     """Load the first gallery item, run it, verify non-empty output and no crash."""
     _reload(page)
 
-    _load_gallery_item(page, 0)
+    idx = _find_gallery_index_by_keyword(page, "hola", "hello", "mundo")
+    if idx < 0:
+        idx = 0
+    _load_gallery_item(page, idx)
 
     output = _run_and_wait(page)
 
@@ -233,10 +236,9 @@ def test_gallery_switching_doesnt_corrupt(page) -> None:
         assert len(code.strip()) > len("#include"), (
             f"Code after loading gallery item {index} is suspiciously short: {code!r}"
         )
-        # Must contain at least one 'main' or function declaration — real program structure
-        assert "main" in code or "{" in code, (
-            f"Expected program structure in code for gallery item {index}, got: {code!r}"
-        )
+        # Must contain substantial code without C includes — real CompileFlow content
+        assert len(code) > 50 and ("#include" not in code), \
+            f"Code looks corrupted: {code[:200]!r}"
 
 
 # ==============================================================================
@@ -255,18 +257,18 @@ def test_gallery_items_have_valid_syntax(page) -> None:
     """
     _reload(page)
 
-    # First discover the count
+    # Collect item names upfront to avoid querying the dropdown inside the loop
     _open_gallery(page)
-    item_count = page.locator("#gallery-menu .dropdown-item").count()
+    item_names = page.locator("#gallery-menu .dropdown-item").all_text_contents()
     # Close without selecting
     page.keyboard.press("Escape")
     page.wait_for_timeout(300)
 
-    assert item_count == 8, (
-        f"Expected 8 gallery items for this test, got {item_count}"
+    assert len(item_names) == 8, (
+        f"Expected 8 gallery items for this test, got {len(item_names)}"
     )
 
-    for index in range(item_count):
+    for index in range(len(item_names)):
         # Fresh reload for each item to avoid state bleed
         _reload(page)
 

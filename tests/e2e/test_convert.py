@@ -14,6 +14,8 @@ Tests cover:
 
 from __future__ import annotations
 
+import os
+
 import pytest
 import requests
 
@@ -21,7 +23,7 @@ from tests.e2e.pages import editor as editor_page
 from tests.e2e.pages import blocks as blocks_page
 
 # ── Base URLs ──────────────────────────────────────────────────────────────────
-FLASK = "http://localhost:5000"
+FLASK = os.environ.get("FLASK_BASE_URL", "http://localhost:5000")
 
 # ── Shared test programs ───────────────────────────────────────────────────────
 PRINTLN_42 = "int main() {\n  println(42);\n  return 0;\n}"
@@ -139,9 +141,9 @@ def test_roundtrip_simple_program(page) -> None:
         f"Roundtripped program caused HTTP 500 on /api/run. "
         f"Source after roundtrip: {code_after!r}"
     )
-    # The response must be valid JSON — no crash
+    # The response must be valid JSON — no crash, and not an explicit failure
     data = resp.json()
-    assert isinstance(data, dict), (
+    assert isinstance(data, dict) and data.get("ok") is not False, (
         f"Expected JSON dict from /api/run, got: {data!r}"
     )
 
@@ -156,6 +158,11 @@ def test_convert_api_c_to_blocks(page) -> None:  # noqa: ARG001
 
     POST /api/convert with direction='c_to_blocks' and a simple program;
     verify the response has ok=True and a 'workspace' field in the data."""
+    try:
+        import requests as _req
+        _req.get(f"{FLASK}/api/check", timeout=2)
+    except Exception:
+        pytest.skip("Flask server not reachable")
     resp = requests.post(
         f"{FLASK}/api/convert",
         json={
@@ -189,6 +196,11 @@ def test_convert_api_blocks_to_c(page) -> None:  # noqa: ARG001
 
     POST /api/convert with direction='blocks_to_c' and a minimal valid
     workspace JSON; verify the response has ok=True and a 'source' field."""
+    try:
+        import requests as _req
+        _req.get(f"{FLASK}/api/check", timeout=2)
+    except Exception:
+        pytest.skip("Flask server not reachable")
     workspace = {
         "blocks": {
             "languageVersion": 0,
