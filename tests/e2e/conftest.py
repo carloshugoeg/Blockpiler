@@ -4,6 +4,7 @@ import socket
 import time
 import os
 import re
+import sys
 from datetime import date
 from pathlib import Path
 from typing import Any, Dict, Generator
@@ -151,34 +152,38 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
     if not failures:
         return
 
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    # Issue 1: Wrap report-writing block in try-except to prevent session finish crash
+    try:
+        REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    today = date.today().isoformat()
-    report_path = REPORTS_DIR / f"issues_{today}.md"
+        today = date.today().isoformat()
+        report_path = REPORTS_DIR / f"issues_{today}.md"
 
-    # Group failures by severity
-    grouped: Dict[str, list] = {"critical": [], "ux": [], "cosmetic": [], "unknown": []}
-    for nodeid, longrepr in failures:
-        sev = _get_marker_severity(session, nodeid)
-        grouped[sev].append((nodeid, longrepr))
+        # Group failures by severity
+        grouped: Dict[str, list] = {"critical": [], "ux": [], "cosmetic": [], "unknown": []}
+        for nodeid, longrepr in failures:
+            sev = _get_marker_severity(session, nodeid)
+            grouped[sev].append((nodeid, longrepr))
 
-    # Write report
-    lines = [f"# E2E Failure Report — {today}\n"]
-    for sev in ("critical", "ux", "cosmetic", "unknown"):
-        items = grouped[sev]
-        if not items:
-            continue
-        lines.append(f"\n## {sev.capitalize()} ({len(items)} failures)\n")
-        for nodeid, longrepr in items:
-            lines.append(f"### `{nodeid}`\n")
-            if longrepr:
-                lines.append("```\n")
-                lines.append(longrepr[:2000])
-                if len(longrepr) > 2000:
-                    lines.append("\n... (truncated)")
-                lines.append("\n```\n")
+        # Write report
+        lines = [f"# E2E Failure Report — {today}\n"]
+        for sev in ("critical", "ux", "cosmetic", "unknown"):
+            items = grouped[sev]
+            if not items:
+                continue
+            lines.append(f"\n## {sev.capitalize()} ({len(items)} failures)\n")
+            for nodeid, longrepr in items:
+                lines.append(f"### `{nodeid}`\n")
+                if longrepr:
+                    lines.append("```\n")
+                    lines.append(longrepr[:2000])
+                    if len(longrepr) > 2000:
+                        lines.append("\n... (truncated)")
+                    lines.append("\n```\n")
 
-    report_path.write_text("".join(lines), encoding="utf-8")
+        report_path.write_text("".join(lines), encoding="utf-8")
+    except Exception as e:
+        print(f"Warning: Failed to write E2E failure report: {e}", file=sys.stderr)
 
     # Append new issues to QA_ISSUES.md that are not already listed there
     qa_path = PROJECT_ROOT / "QA_ISSUES.md"
@@ -202,7 +207,11 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
         )
         new_entries.append(entry)
 
+    # Issue 2: Wrap QA_ISSUES.md append in try-except to prevent silent failures
     if new_entries:
-        with open(qa_path, "a", encoding="utf-8") as f:
-            for entry in new_entries:
-                f.write(entry)
+        try:
+            with open(qa_path, "a", encoding="utf-8") as f:
+                for entry in new_entries:
+                    f.write(entry)
+        except Exception as e:
+            print(f"Warning: Failed to append issues to QA_ISSUES.md: {e}", file=sys.stderr)
