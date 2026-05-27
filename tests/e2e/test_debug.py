@@ -98,8 +98,8 @@ def test_debug_start_shows_controls(page) -> None:
     page.wait_for_selector("#debug-container button", timeout=5_000)
 
     button_count = controls.count()
-    assert button_count >= 3, (
-        f"Expected at least 3 control buttons (Step/Continue/Stop) in debug panel, "
+    assert button_count == 3, (
+        f"Expected exactly 3 control buttons (Step/Continue/Stop) in debug panel, "
         f"got {button_count}"
     )
 
@@ -138,8 +138,8 @@ def test_debug_step_updates_variables(page) -> None:
     step_btn = page.locator("#debug-container button").first
     step_btn.click()
 
-    # Give the WebSocket a moment to respond with a debug:state event
-    page.wait_for_timeout(2_000)
+    # Wait until a variable row actually appears in the inspector
+    page.wait_for_selector('#debug-container .dbg-var-row', timeout=10_000)
 
     # Check for variable rows rendered by _updateVariablesPanel
     # The Debugger renders .dbg-var-row elements inside .dbg-variables
@@ -170,8 +170,15 @@ def test_debug_error_shown_not_swallowed(page) -> None:
     editor_page.type_code(page, INVALID_PROG)
 
     page.locator("#btn-debug").click()
-    # Allow a brief moment for async error delivery
-    page.wait_for_timeout(3_000)
+    # Wait until content appears in the debug panel or console output
+    page.wait_for_function(
+        """() => {
+            const debug = document.querySelector('#debug-container')?.innerText || '';
+            const console_out = document.getElementById('console-output')?.textContent || '';
+            return debug.length > 10 || console_out.length > 10;
+        }""",
+        timeout=10_000,
+    )
 
     debug_text = (page.locator("#debug-container").inner_text() or "").lower()
     console_text = (editor_page.get_output(page) or "").lower()
@@ -208,18 +215,8 @@ def test_debug_stop_clears_state(page) -> None:
     # Wait for control buttons to appear
     page.wait_for_selector("#debug-container button", timeout=5_000)
 
-    # Find and click the Stop button (last of the three controls created by mountUI)
-    buttons = page.locator("#debug-container button")
-    stop_btn = None
-    for i in range(buttons.count()):
-        label = (buttons.nth(i).text_content() or "").strip().lower()
-        if label == "stop":
-            stop_btn = buttons.nth(i)
-            break
-
-    if stop_btn is None:
-        # Fallback: use the last button in the control group
-        stop_btn = buttons.last
+    # debugger.js creates exactly 3 buttons in order: Step=0, Continue=1, Stop=2
+    stop_btn = page.locator('#debug-container button').nth(2)
 
     stop_btn.click()
 
