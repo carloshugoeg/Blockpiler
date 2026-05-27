@@ -311,16 +311,10 @@ def test_rapid_compile_clicks_no_corruption(page) -> None:
     output = editor_page.get_output(page)
 
     # Console must not be blank
-    assert output.strip(), (
-        "Expected non-empty console output after 10 rapid compile clicks, "
-        "got blank screen"
-    )
-
-    # #shell must still exist in the DOM — no JS crash wiped the page
-    shell_exists = page.locator("#shell").count() > 0
-    assert shell_exists, (
-        "Expected #shell to still exist in DOM after 10 rapid compile clicks"
-    )
+    assert output.strip(), "Console output is empty after rapid compile clicks"
+    assert "#shell" not in output, "Expected program output, not raw HTML"
+    # Verify app DOM is intact (not white-screened)
+    assert _app_intact(page), "App appears to have crashed (white screen) after rapid clicks"
 
 
 # ==============================================================================
@@ -380,6 +374,10 @@ def test_empty_then_valid_program(page) -> None:
 
     # Clear the console, then type a valid program and run again
     editor_page.clear_output(page)
+    page.wait_for_function(
+        "document.getElementById('console-output')?.textContent?.trim().length === 0",
+        timeout=5_000,
+    )
 
     editor_page.type_code(page, PRINTLN_42)
     editor_page.click_run(page)
@@ -395,6 +393,6 @@ def test_empty_then_valid_program(page) -> None:
     )
 
     # Second run of println(42) should succeed and show "42"
-    assert "42" in second_output or "error" not in second_output.lower()[:50], (
-        f"Expected '42' in second run output (valid program), got: {second_output!r}"
+    assert "42" in second_output, (
+        f"Expected '42' in output after valid second run, got: {second_output!r}"
     )
