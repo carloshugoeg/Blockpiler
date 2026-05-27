@@ -74,9 +74,9 @@ def test_cf_qa_001_compile_reports_success_when_assembler_fails(page):
 
     # The correct behaviour: if the assembler/linker fails the UI must NOT show
     # a success message without also surfacing the error.
-    assert "compilación exitosa" not in output.lower() or "error" in output.lower(), (
-        "CF-QA-001: compile reports success even when linker returns -1"
-    )
+    # Should fail: success message present, no error message
+    assert not ('compilación exitosa' in output.lower() and 'error' not in output.lower()), \
+        "CF-QA-001: Shows 'compilación exitosa' even when linker fails"
 
 
 # ==============================================================================
@@ -241,13 +241,14 @@ def test_cf_qa_006_blockly_fails_loading_local_variables(page):
     Bug: MissingConnection error for c_var_decl block.
     """
     errors: list[str] = []
+
+    page.goto("/")
+    page.wait_for_selector("#shell", timeout=15_000)
+
     page.on(
         "console",
         lambda msg: errors.append(msg.text) if msg.type == "error" else None,
     )
-
-    page.goto("/")
-    page.wait_for_selector("#shell", timeout=15_000)
 
     editor_page.type_code(page, PRINTLN_LOOP_PROG)
     blocks_page.switch_to_blocks(page)
@@ -274,14 +275,15 @@ def test_cf_qa_007_blockly_fails_loading_functions_with_params(page):
     Bug: MissingConnection error for c_param block.
     """
     errors: list[str] = []
-    page.on(
-        "console",
-        lambda msg: errors.append(msg.text) if msg.type == "error" else None,
-    )
 
     page.goto("/")
     page.wait_for_selector("#shell", timeout=15_000)
     page.wait_for_timeout(1_000)
+
+    page.on(
+        "console",
+        lambda msg: errors.append(msg.text) if msg.type == "error" else None,
+    )
 
     # Open gallery menu
     page.locator("#btn-gallery").click()
@@ -480,7 +482,7 @@ def test_cf_qa_011_ui_has_no_stdin_input_field(page):
     def capture_request(req):
         if "/api/run" in req.url:
             try:
-                request_body.update(req.post_data_json or {})
+                request_body.update(req.post_data_json() or {})
             except Exception:
                 pass
 
@@ -698,11 +700,9 @@ def test_cf_qa_017_panels_show_stale_state_after_errors(page):
     # If the first compile populated the AST and the second compile errors out,
     # the AST panel should be cleared or marked stale — not remain visible.
     # (The correct behaviour is to hide/clear it on error.)
-    if ast_visible_after_valid and "error" in output_after_error.lower():
-        assert not ast_visible_after_error, (
-            "CF-QA-017: AST panel still visible/showing stale data after "
-            "compile error; expected it to be cleared"
-        )
+    assert ast_visible_after_valid, "Precondition failed: valid compile did not populate AST panel"
+    assert "error" in output_after_error.lower(), "Precondition failed: error compile did not show error"
+    assert not ast_visible_after_error, "CF-QA-017: AST panel still shows after error compile"
 
 
 # ==============================================================================
@@ -735,11 +735,9 @@ def test_cf_qa_018_console_retains_old_errors_in_flowchart(page):
 
     output_after_flowchart = editor_page.get_output(page)
 
-    # The console should NOT still contain the previous error
-    assert "error" not in output_after_flowchart.lower() or (
-        "flowchart" in output_after_flowchart.lower()
-        or "mermaid" in output_after_flowchart.lower()
-    ), (
+    # The console should NOT still contain the previous error.
+    # After a new action, old errors must be cleared — not silently mixed in.
+    assert "error" not in output_after_flowchart.lower(), (
         "CF-QA-018: Old error messages still visible in console after "
         "generating a successful Flowchart"
     )
