@@ -137,7 +137,14 @@ document.getElementById('app').innerHTML = `
   <div id="console">
     <div class="console-header">
       <span>Salida</span>
-      <button id="btn-clear-console" class="btn-sm">Limpiar</button>
+      <div class="console-header-actions">
+        <button id="btn-toggle-stdin" class="btn-sm" title="Mostrar/ocultar entrada">Entrada ▾</button>
+        <button id="btn-clear-console" class="btn-sm">Limpiar</button>
+      </div>
+    </div>
+    <div id="stdin-panel">
+      <label class="stdin-label" for="stdin-input">Entrada (stdin) — una línea por dato:</label>
+      <textarea id="stdin-input" rows="3" placeholder="Ej: 5&#10;3.14&#10;hola mundo"></textarea>
     </div>
     <pre id="console-output"></pre>
   </div>
@@ -181,6 +188,17 @@ function clearConsole() {
   pre.textContent = '';
   pre.classList.remove('has-errors');
 }
+
+function getStdin() {
+  return document.getElementById('stdin-input')?.value ?? '';
+}
+
+document.getElementById('btn-toggle-stdin').onclick = () => {
+  const panel = document.getElementById('stdin-panel');
+  const btn   = document.getElementById('btn-toggle-stdin');
+  const hidden = panel.classList.toggle('hidden');
+  btn.textContent = hidden ? 'Entrada ▸' : 'Entrada ▾';
+};
 
 // ── Tab switching ──────────────────────────────────────────────────────────
 function activateTab(tabsId, targetId) {
@@ -384,7 +402,7 @@ async function compile() {
     const data = await fetchJSON('/api/compile', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ source, optimization_level: 1, include_explanation: true }),
+      body:    JSON.stringify({ source, optimization_level: 1, include_explanation: true, stdin: getStdin() }),
     });
     clearConsole();
 
@@ -404,6 +422,11 @@ async function compile() {
       if (data.data.explanation) {
         explainer.render(data.data.explanation);
       }
+
+      const cmds = data.data.commands ?? [];
+      cmds.forEach(cmd => printConsole('$ ' + cmd));
+      if (cmds.length > 0) printConsole('');
+      if (data.data.stdout) printConsole(data.data.stdout);
 
       const warns = (data.data.warnings ?? [])
         .map(w => `[aviso] línea ${w.line}: ${w.message}`)
@@ -432,7 +455,7 @@ async function run() {
     const data = await fetchJSON('/api/run', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ source }),
+      body:    JSON.stringify({ source, stdin: getStdin() }),
     });
     clearConsole();
 

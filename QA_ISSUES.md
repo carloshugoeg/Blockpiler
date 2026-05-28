@@ -1075,3 +1075,68 @@ Prioridad sugerida:
 4. Completar imports/exports y stdin (`CF-QA-011` a `CF-QA-015`, `CF-QA-026`).
 5. Mejorar paneles/debugger/AST UX (`CF-QA-017` a `CF-QA-023`, `CF-QA-025`).
 
+
+### CF-QA-028 - E2E failure: `tests/e2e/test_qa_issues.py::test_cf_qa_009_printf_accepted_as_language_function`
+
+**Severidad:** Ux  
+**Fecha:** 2026-05-27  
+
+**Mensaje:**
+
+```
+tests/e2e/test_qa_issues.py:393: in test_cf_qa_009_printf_accepted_as_language_function
+```
+
+---
+
+### CF-QA-029 - E2E failure: `tests/e2e/test_qa_issues.py::test_cf_qa_010_input_int_without_stdin_causes_http_500`
+
+**Severidad:** Critical  
+**Fecha:** 2026-05-27  
+
+**Mensaje:**
+
+```
+../../../../../Library/Python/3.9/lib/python/site-packages/requests/models.py:976: in json
+```
+
+---
+
+### CF-QA-030 - E2E failure: `tests/e2e/test_qa_issues.py::test_cf_qa_013_validate_file_does_not_validate_content`
+
+**Severidad:** Ux  
+**Fecha:** 2026-05-27  
+
+**Mensaje:**
+
+```
+tests/e2e/test_qa_issues.py:574: in test_cf_qa_013_validate_file_does_not_validate_content
+```
+
+---
+
+### CF-QA-031 - E2E failure: `tests/e2e/test_qa_issues.py::test_cf_qa_022_blocks_to_c_accepts_null_blocks_as_success`
+
+**Severidad:** Ux  
+**Fecha:** 2026-05-27  
+
+**Mensaje:**
+
+```
+tests/e2e/test_qa_issues.py:897: in test_cf_qa_022_blocks_to_c_accepts_null_blocks_as_success
+```
+
+---
+
+### CF-QA-032 - E2E failure: `tests/e2e/test_qa_issues.py::test_cf_qa_027_compile_executes_binary_as_side_effect`
+
+**Severidad:** Ux  
+**Fecha:** 2026-05-27  
+
+**Mensaje:**
+
+```
+tests/e2e/test_qa_issues.py:1114: in test_cf_qa_027_compile_executes_binary_as_side_effect
+```
+
+---

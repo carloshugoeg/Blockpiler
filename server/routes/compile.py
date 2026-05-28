@@ -83,6 +83,7 @@ def compile_source() -> ft.ResponseReturnValue:
             'line_map': {str(k): v for k, v in line_map.items()},
             'warnings': [w.to_dict() for w in reporter.warnings],
             'explanation': explanation,
+            'commands': result.commands,
         },
     }
     if exec_ok:

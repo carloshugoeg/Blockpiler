@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from compiler.limits import EXEC_TIMEOUT_SEC, MAX_OUTPUT_SIZE
@@ -18,6 +18,7 @@ class ExecutionResult:
     assembly_path: str
     binary_path: Optional[str]
     error: Optional[str]
+    commands: list = field(default_factory=list)
 
 
 class Executor:
@@ -38,6 +39,7 @@ class Executor:
             f.write(assembly)
 
         cmd = self._gcc_cmd(asm_path, bin_path)
+        commands = [' '.join(cmd)]
         try:
             as_proc = subprocess.run(
                 cmd, capture_output=True, text=True, timeout=30
@@ -47,6 +49,7 @@ class Executor:
                 stdout='', stderr=str(exc), returncode=-1,
                 timed_out=False, assembly_path=asm_path, binary_path=None,
                 error=f'Compilador no encontrado: {exc}',
+                commands=commands,
             )
 
         if as_proc.returncode != 0:
@@ -54,9 +57,11 @@ class Executor:
                 stdout='', stderr=as_proc.stderr, returncode=-1,
                 timed_out=False, assembly_path=asm_path, binary_path=None,
                 error=f'Error al ensamblar:\n{as_proc.stderr}',
+                commands=commands,
             )
 
         run_cmd = self._run_cmd(bin_path)
+        commands.append(' '.join(run_cmd))
         try:
             proc = subprocess.run(
                 run_cmd,
@@ -76,12 +81,14 @@ class Executor:
                 assembly_path=asm_path,
                 binary_path=bin_path,
                 error=None,
+                commands=commands,
             )
         except subprocess.TimeoutExpired:
             return ExecutionResult(
                 stdout='', stderr='', returncode=-1, timed_out=True,
                 assembly_path=asm_path, binary_path=bin_path,
                 error=f'Tiempo de ejecución excedido ({EXEC_TIMEOUT_SEC}s)',
+                commands=commands,
             )
         finally:
             if os.path.exists(bin_path):

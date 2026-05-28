@@ -596,7 +596,7 @@ button, input, select, textarea { font: inherit; }
 
 /* Console */
 #console {
-  height: 138px;
+  height: 240px;
   display: flex;
   flex-direction: column;
   border-top: 1px solid var(--border);
@@ -630,6 +630,53 @@ button, input, select, textarea { font: inherit; }
 }
 
 #console-output.has-errors { color: #fca5a5; }
+
+/* Console header actions */
+.console-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* Stdin panel */
+#stdin-panel {
+  display: flex;
+  flex-direction: column;
+  background: #0d1520;
+  border-bottom: 1px solid #263449;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}
+
+.stdin-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-bottom: 4px;
+}
+
+#stdin-input {
+  background: #101722;
+  color: #e5edf7;
+  border: 1px solid #263449;
+  border-radius: 4px;
+  font-family: "Cascadia Mono", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 5px 8px;
+  resize: vertical;
+  min-height: 52px;
+  outline: none;
+}
+
+#stdin-input:focus {
+  border-color: #2563eb;
+}
+
+#stdin-input::placeholder {
+  color: #3d5068;
+}
 
 /* Blockly shell styling */
 #blocks-container {
