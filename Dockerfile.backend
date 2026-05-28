@@ -1,15 +1,22 @@
-FROM --platform=linux/amd64 python:3.11-slim-bookworm
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
+
+# TARGETARCH is set automatically by BuildKit to the host's native architecture:
+#   arm64  → Apple Silicon / ARM Linux  (native gcc, no emulation needed)
+#   amd64  → Intel/AMD x86 Mac/Linux/Windows  (cross-compiler + qemu)
+ARG TARGETARCH
 
 RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' \
         /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        gcc \
-        gcc-aarch64-linux-gnu \
-        libc6-dev-arm64-cross \
-        qemu-user \
+    && apt-get install -y --no-install-recommends gcc \
+    && if [ "$TARGETARCH" = "amd64" ]; then \
+         apt-get install -y --no-install-recommends \
+           gcc-aarch64-linux-gnu \
+           libc6-dev-arm64-cross \
+           qemu-user; \
+       fi \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
