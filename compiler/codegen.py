@@ -401,17 +401,10 @@ class CodeGenerator:
         if itype == 'float':
             fmt_lbl = '.Lfmt_float_nl' if newline else '.Lfmt_float'
             val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            if self._is_macos():
-                # macOS ABI: float variadic args go on the stack at [sp]
-                self._emit('    sub  sp, sp, #16')
-                self._emit(f'    str  {val_reg}, [sp]')
-            else:
-                self._emit(f'    fmov d0, {val_reg}')
+            self._emit(f'    fmov d0, {val_reg}')
             self._free_reg(val_reg)
             self._adrp_add('x0', fmt_lbl)
             self._emit(f'    bl   {bl}', stmt.pos.line)
-            if self._is_macos():
-                self._emit('    add  sp, sp, #16')
         else:
             if itype == 'string':
                 fmt_lbl = '.Lfmt_str_nl' if newline else '.Lfmt_str'
@@ -420,17 +413,10 @@ class CodeGenerator:
             else:
                 fmt_lbl = '.Lfmt_int_nl' if newline else '.Lfmt_int'
             val_reg = self._gen_expr(stmt.expr, c_line=stmt.pos.line)
-            if self._is_macos():
-                # macOS ABI: integer/pointer variadic args go on the stack at [sp]
-                self._emit('    sub  sp, sp, #16')
-                self._emit(f'    str  {val_reg}, [sp]')
-            else:
-                self._emit(f'    mov x1, {val_reg}')
+            self._emit(f'    mov  x1, {val_reg}')
             self._free_reg(val_reg)
             self._adrp_add('x0', fmt_lbl)
             self._emit(f'    bl   {bl}', stmt.pos.line)
-            if self._is_macos():
-                self._emit('    add  sp, sp, #16')
 
     def _gen_expr(self, expr: Any, c_line: int = -1) -> str:
         if isinstance(expr, IntLiteral):
@@ -668,8 +654,11 @@ class CodeGenerator:
             self._emit(f'    ldr  {reg}, [sp]')
             self._emit('    add  sp, sp, #16')
         else:
-            # String: read up to 4096 chars
-            self._emit(f'    mov  {reg}, #0')
+            # String: read whitespace-delimited token into static 4096-byte buffer
+            self._adrp_add('x1', '.Linput_str_buf')
+            self._adrp_add('x0', '.Lfmt_str')
+            self._emit(f'    bl   {scanf}')
+            self._adrp_add(reg, '.Linput_str_buf')
         return reg
 
 
@@ -698,6 +687,12 @@ def _add_standard_rodata(gen: CodeGenerator) -> None:
         '    .asciz "Error: division por cero\\n"',
         '.Lerr_oob:',
         '    .asciz "Error: indice fuera de rango en array \'%s\'\\n"',
+        '',
+        # Mutable buffer for input() string variant — 4096 bytes, zero-initialised
+        '    .section __DATA,__data' if gen._is_macos() else '    .section .data',
+        '    .balign 8',
+        '.Linput_str_buf:',
+        '    .zero 4096',
         '',
     ]
 

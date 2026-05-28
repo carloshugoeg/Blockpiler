@@ -177,7 +177,8 @@ def test_println_float_uses_float_fmt() -> None:
         pos=pos,
     )
     asm, _ = codegen(prog)
-    assert 'fmov' in asm or '.Lfmt_float' in asm
+    assert 'fmov d0' in asm
+    assert '.Lfmt_float_nl' in asm
 
 
 def test_println_string_uses_str_fmt() -> None:
@@ -414,7 +415,7 @@ def test_input_float_uses_scanf() -> None:
     assert 'scanf' in asm or 'bl' in asm.lower()
 
 
-def test_input_string_emits_zero() -> None:
+def test_input_string_uses_scanf() -> None:
     from compiler.ast_nodes import (
         InputExpr, VarDecl, Program, FunctionDecl, Block,
         ReturnStmt, Identifier, SourcePos
@@ -435,7 +436,7 @@ def test_input_string_emits_zero() -> None:
         pos=pos,
     )
     asm, _ = codegen(prog)
-    assert '#0' in asm or 'mov' in asm.lower()
+    assert 'scanf' in asm or '.Linput_str_buf' in asm
 
 
 def test_index_store_assignment() -> None:
@@ -449,3 +450,27 @@ def test_expr_stmt_discards_result() -> None:
     asm, _ = compile_to_asm('int add(int a, int b) { return a+b; } int main() { add(1,2); return 0; }')
     # Call is made even if result unused
     assert 'bl' in asm.lower()
+
+
+def test_println_int_uses_x1() -> None:
+    from compiler.ast_nodes import (
+        IntLiteral, PrintStmt, Program, FunctionDecl, Block,
+        ReturnStmt, SourcePos,
+    )
+    from compiler.codegen import codegen
+    pos = SourcePos(1, 1)
+    prog = Program(
+        declarations=[FunctionDecl(
+            name='main', return_type='int', params=[],
+            body=Block(stmts=[
+                PrintStmt(expr=IntLiteral(42, inferred_type='int'), newline=True, pos=pos),
+                ReturnStmt(value=None, pos=pos),
+            ], pos=pos),
+            pos=pos,
+        )],
+        pos=pos,
+    )
+    asm, _ = codegen(prog)
+    assert 'mov  x1,' in asm
+    assert '.Lfmt_int_nl' in asm
+    assert 'sub  sp, sp, #16\n    str' not in asm
